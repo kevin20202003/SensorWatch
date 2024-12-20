@@ -471,7 +471,7 @@ echo "<script> var chartData = " . json_encode($datos) . ";</script>";
         <div class="l-navbar" id="nav-bar">
             <nav class="nav">
                 <div>
-                    <a href="../home.php" class="nav_logo">
+                    <a href="../index.php" class="nav_logo">
                         <i class="fa-solid fa-desktop nav_logo-icon"></i>
                         <span class="nav_logo-name">SensorWatch</span>
                     </a>
