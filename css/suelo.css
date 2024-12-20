@@ -1,0 +1,43 @@
+*{
+    margin: 0;
+    padding: 0;
+}
+.menu{
+    height: 98vh;
+    background-color: rgba(255, 255, 255, 0.301);
+}
+
+.img img{
+    margin-top: 10%;
+    height: 13%;
+    width: 90%;
+    border-radius: 8px;
+    margin-left: 5%;
+}
+
+.menu a .icon-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 41px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #f0f0f0;
+    margin: 0 auto;
+    color: black;
+}
+
+.menu a .icon-container i {
+    font-size: 20px;
+}
+
+.menu a:hover .icon-container {
+    background-color: #e0e0e0;
+}
+
+.menu span {
+    display: block;
+    margin-top: 10px;
+    font-size: 16px;
+}
+
