@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
 if (empty($_SESSION["id_usuario"])) {
     header("location: ../auth/login.php");
     exit;
@@ -57,42 +59,50 @@ try {
         }
     }
 
-    // Obtener los datos para los últimos 20 registros
-    $stmt = $pdo->prepare("SELECT TO_CHAR(created_at, 'YYYY-MM-DD HH24:00:00') AS hora,
-                                  AVG(temperatura) AS temperatura,
-                                  AVG(humedad) AS humedad,
-                                  AVG(PH) AS PH
-                           FROM datos_suelo
-                           GROUP BY hora
-                           ORDER BY hora DESC
-                           LIMIT 20");
-    $stmt->execute();
-    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Consulta para calcular varianza y promedio
+    $sql_varianza = "
+        SELECT 
+            TO_CHAR(created_at, 'YYYY-MM-DD HH24:00:00') AS hora,
+            AVG(temperatura) AS temperatura,
+            AVG(humedad) AS humedad,
+            AVG(PH) AS PH
+        FROM 
+            datos_suelo
+        GROUP BY 
+            hora
+        ORDER BY 
+            hora DESC
+        LIMIT 20
+    ";
 
+    $stmt_varianza = $pdo->query($sql_varianza);
     $temperatures = [];
     $humidities = [];
     $pHs = [];
     $labels = [];
 
-    foreach ($result as $row) {
+    while ($row = $stmt_varianza->fetch(PDO::FETCH_ASSOC)) {
         $temperatures[] = $row['temperatura'];
         $humidities[] = $row['humedad'];
-        $pHs[] = $row['PH'];
+        $pHs[] = isset($row['PH']) ? $row['PH'] : null;  // Verificar si PH existe
         $labels[] = $row['hora'];
     }
 
-    // Calcular varianza para cada conjunto de datos
-    $datos = [
-        'temperatures' => $temperatures,
-        'humidities' => $humidities,
-        'pHs' => $pHs,
-        'labels' => $labels,
-        'varianza_temperaturas' => calcularVarianza($temperatures),
-        'varianza_humedades' => calcularVarianza($humidities),
-        'varianza_ph' => calcularVarianza($pHs)
-    ];
-
-    echo "<script> var chartData = " . json_encode($datos) . ";</script>";
+    // Asegúrate de que los arrays no estén vacíos antes de calcular la varianza
+    if (!empty($temperatures) && !empty($humidities) && !empty($pHs)) {
+        $datos = [
+            'temperatures' => $temperatures,
+            'humidities' => $humidities,
+            'pHs' => $pHs,
+            'labels' => $labels,
+            'varianza_temperaturas' => calcularVarianza($temperatures),
+            'varianza_humedades' => calcularVarianza($humidities),
+            'varianza_ph' => calcularVarianza($pHs)
+        ];
+        echo "<script> var chartData = " . json_encode($datos) . ";</script>";
+    } else {
+        echo "<script> var chartData = {}; </script>";
+    }
 
 } catch (Exception $e) {
     echo "Error: " . $e->getMessage();
@@ -115,11 +125,11 @@ function generarNotificaciones($notificaciones)
         $script .= "eval(notificaciones[index]).then(function() {";
         $script .= "mostrarNotificaciones(index + 1);";
         $script .= "});";
-        $script .= "}";
-        $script .= "}";
-        $script .= "var notificaciones = " . json_encode($notificaciones) . ";";
-        $script .= "mostrarNotificaciones(0);";
-        $script .= "});";
+        $script .= "}"; 
+        $script .= "}"; 
+        $script .= "var notificaciones = " . json_encode($notificaciones) . ";"; 
+        $script .= "mostrarNotificaciones(0);"; 
+        $script .= "});"; 
 
         echo "<script src='https://cdn.jsdelivr.net/npm/sweetalert2@11'></script>";
         echo "<script>$script</script>";
@@ -129,8 +139,8 @@ function generarNotificaciones($notificaciones)
 function calcularVarianza($datos)
 {
     $n = count($datos);
-    if ($n === 0) {
-        return null;
+    if ($n <= 1) {
+        return 0; // Si solo hay un valor o ninguno, no tiene sentido calcular la varianza
     }
 
     $media = array_sum($datos) / $n;
@@ -140,7 +150,7 @@ function calcularVarianza($datos)
         $sumaCuadrados += pow($valor - $media, 2);
     }
 
-    return $sumaCuadrados / $n;
+    return $sumaCuadrados / ($n - 1); // Varianza corregida para muestra
 }
 ?>
 <!DOCTYPE html>

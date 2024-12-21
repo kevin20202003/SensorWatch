@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
 if (empty($_SESSION["id_usuario"])) {
     header("location: ../auth/login.php");
     exit();
@@ -9,6 +11,9 @@ if (empty($_SESSION["id_usuario"])) {
 require '../modelo/conexion.php';
 
 $id_usuario = isset($_SESSION['id_usuario']) ? intval($_SESSION['id_usuario']) : 0;
+
+// Definir $selected_table si no está definida
+$selected_table = isset($_POST['table']) ? $_POST['table'] : '';
 
 // Eliminar registro si se ha solicitado
 if (isset($_GET['delete'], $_GET['table'], $_GET['id'])) {
