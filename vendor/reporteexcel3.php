@@ -1,47 +1,22 @@
 <?php
 
 // Incluye los archivos necesarios para PhpSpreadsheet
-require 'autoload.php'; // Asegúrate de tener Composer instalado y usar autoload.php
+require 'autoload.php'; 
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
 use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\Color;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Font;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 
-// Funciones para la conexión a la base de datos
-function connect_db()
-{
-    global $conexion;
-    if ($conexion === null) {
-        $conexion = new mysqli("localhost", "root", "", "invernadero");
-        if ($conexion->connect_error) {
-            die("Connection failed: " . $conexion->connect_error);
-        }
-        $conexion->set_charset("utf8");
-    }
-    return $conexion;
-}
-
-function close_db()
-{
-    global $conexion;
-    if ($conexion !== null) {
-        $conexion->close();
-        $conexion = null;
-    }
-}
-
-// Conectar a la base de datos
-$conexion = connect_db();
+// Incluir el archivo de conexión
+require '../modelo/conexion.php'; 
 
 // Consulta a la tabla datos_meteorologicos
 $sql = "SELECT 
-      DATE_FORMAT(date, '%Y-%m-%d %H:00:00') AS hora,
+      TO_CHAR(date, 'YYYY-MM-DD HH24:00:00') AS hora,
       AVG(temp) AS temp,
       AVG(pressure) AS pressure,
       AVG(humidity) AS humidity,
@@ -53,11 +28,17 @@ $sql = "SELECT
     ORDER BY 
         hora;";
 
-$stmt = $conexion->prepare($sql);
-$stmt->execute();
-$result = $stmt->get_result();
-if (!$result) {
-    die("Error en la consulta de datos_meteorologicos: " . $conexion->error);
+try {
+    // Ejecutar la consulta
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!$result) {
+        die("No se encontraron resultados.");
+    }
+} catch (PDOException $e) {
+    die("Error en la consulta: " . $e->getMessage());
 }
 
 $spreadsheet = new Spreadsheet();
@@ -65,7 +46,7 @@ $sheet = $spreadsheet->getActiveSheet();
 $sheet->setTitle('Reporte de Sensor Meteorologico');
 
 // Configuración del título del reporte
-$sheet->mergeCells('A1:E1');
+$sheet->mergeCells('A1:F1');
 $sheet->setCellValue('A1', 'Reporte del Sensor Meteorologico');
 $sheet->getStyle('A1')->applyFromArray([
     'font' => [
@@ -103,13 +84,13 @@ $borderStyle = [
 ];
 
 // Agregar datos
-$row_num = 7; // Empezamos en la fila 7
-while ($row = $result->fetch_assoc()) {
-    $sheet->setCellValue('A' . $row_num, $row['temp']); // Temperatura
-    $sheet->setCellValue('B' . $row_num, $row['pressure']); // Presión
-    $sheet->setCellValue('C' . $row_num, $row['humidity']); // Humedad
-    $sheet->setCellValue('D' . $row_num, $row['wind_speed']); // Velocidad de viento
-    $sheet->setCellValue('E' . $row_num, $row['hora']); // Fecha (hora)
+$row_num = 7; 
+foreach ($result as $row) {
+    $sheet->setCellValue('A' . $row_num, $row['temp']); 
+    $sheet->setCellValue('B' . $row_num, $row['pressure']); 
+    $sheet->setCellValue('C' . $row_num, $row['humidity']); 
+    $sheet->setCellValue('D' . $row_num, $row['wind_speed']); 
+    $sheet->setCellValue('E' . $row_num, $row['hora']); 
     $row_num++;
 }
 
@@ -123,10 +104,10 @@ foreach ($columnLetters as $columnID) {
 
 // Agregar una imagen en la parte derecha
 $drawing = new Drawing();
-$drawing->setPath('../img/logo_proyecto.png'); // Reemplaza con la ruta a tu imagen
-$drawing->setCoordinates('F1'); // Coloca la imagen en la celda F1
-$drawing->setWidth(150); // Ajusta el ancho de la imagen
-$drawing->setHeight(150); // Ajusta la altura de la imagen
+$drawing->setPath('../img/logo_proyecto.png'); 
+$drawing->setCoordinates('F1'); 
+$drawing->setWidth(150); 
+$drawing->setHeight(150); 
 $drawing->setWorksheet($sheet);
 
 // Establecer nombre del archivo
@@ -138,6 +119,7 @@ header('Cache-Control: max-age=0');
 $writer = new Xlsx($spreadsheet);
 $writer->save('php://output');
 
-// Cerrar la base de datos
-close_db();
+// Cerrar la conexión
+$pdo = null;
+
 ?>

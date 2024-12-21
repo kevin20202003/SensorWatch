@@ -7,18 +7,8 @@ require '../PHPMailer/src/Exception.php';
 require '../PHPMailer/src/PHPMailer.php';
 require '../PHPMailer/src/SMTP.php';
 
-$host = 'dpg-ctjgc29opnds73fpf86g-a'; // External o Internal URL
-$port = '5432'; // Puerto de PostgreSQL
-$dbname = 'invernadero_b4gl';
-$user = 'invernadero_b4gl_user';
-$password = 'y39YXOlTTfBs5Fs28iZrHV8Dj4DJwLYY';
-
-try {
-    $pdo = new PDO("pgsql:host=$host;port=$port;dbname=$dbname", $user, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    echo "Error al conectar a PostgreSQL: " . $e->getMessage();
-}
+// Incluir el archivo de conexión
+require '../modelo/conexion.php'; // Asegúrate de incluir tu archivo de conexión a la base de datos
 
 // Función para enviar el código de verificación al correo del usuario
 function enviarCodigoVerificacion($correo, $codigo) {
@@ -29,12 +19,12 @@ function enviarCodigoVerificacion($correo, $codigo) {
         $mail->isSMTP();
         $mail->Host       = 'smtp.gmail.com';
         $mail->SMTPAuth   = true;
-        $mail->Username   = 'sensorwatch99@gmail.com'; // Cambia a tu correo
-        $mail->Password   = 'yrwk zuzt jifl tnhs';       // Cambia a tu contraseña (considera usar variables de entorno)
+        $mail->Username   = 'sensorwatch99@gmail.com'; 
+        $mail->Password   = 'yrwk zuzt jifl tnhs';      
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
         $mail->Port       = 465;        
 
-        // Configuración SSL opcional (deshabilita la validación del certificado si es necesario)
+        // Configuración SSL (deshabilita la validación del certificado si es necesario)
         $mail->SMTPOptions = array(
             'ssl' => array(
                 'verify_peer' => false,
@@ -44,12 +34,12 @@ function enviarCodigoVerificacion($correo, $codigo) {
         );
 
         // Remitente y destinatario
-        $mail->setFrom('sensorwatch99@gmail.com', 'Sistema Monitoreo'); // Cambia a tu remitente
-        $mail->addAddress($correo); // Destinatario
+        $mail->setFrom('sensorwatch99@gmail.com', 'Sistema Monitoreo'); 
+        $mail->addAddress($correo); 
 
         // Contenido del correo
         $mail->isHTML(true);
-        $mail->CharSet = 'UTF-8'; // Añade esta línea para establecer la codificación
+        $mail->CharSet = 'UTF-8'; 
         $mail->Subject = 'Código de verificación';
         $mail->Body    = "Tu código de verificación es: <b>$codigo</b>. Es válido por 5 minutos.";        
 

@@ -2,103 +2,130 @@
 session_start();
 if (empty($_SESSION["id_usuario"])) {
     header("location: ../auth/login.php");
-}
-?>
-
-<?php
-// Conexión a la base de datos
-$conexion = new mysqli('localhost', 'root', '', 'invernadero');
-
-// Verificar conexión
-if ($conexion->connect_error) {
-    die("Conexión fallida: " . $conexion->connect_error);
+    exit;
 }
 
+// Incluir el archivo de conexión
+require '../modelo/conexion.php';
 
 $id_usuario = $_SESSION['id_usuario'];
 
-// Obtener los datos del umbral para el usuario actual
-$sql_umbral = "SELECT * FROM umbral_suelo WHERE id_usuario = $id_usuario";
-$result_umbral = $conexion->query($sql_umbral);
+try {
+    // Obtener los datos del umbral para el usuario actual
+    $sql_umbral = "SELECT * FROM umbral_suelo WHERE id_usuario = :id_usuario";
+    $stmt_umbral = $pdo->prepare($sql_umbral);
+    $stmt_umbral->execute(['id_usuario' => $id_usuario]);
+    $umbral_result = $stmt_umbral->fetchAll(PDO::FETCH_ASSOC);
 
-// Procesar cada umbral
-while ($umbral = $result_umbral->fetch_assoc()) {
-    $humedad_min = $umbral['humedad_min'];
-    $humedad_max = $umbral['humedad_max'];
-    $temperatura_min = $umbral['temperatura_min'];
-    $temperatura_max = $umbral['temperatura_max'];
+    foreach ($umbral_result as $umbral) {
+        $humedad_min = $umbral['humedad_min'];
+        $humedad_max = $umbral['humedad_max'];
+        $temperatura_min = $umbral['temperatura_min'];
+        $temperatura_max = $umbral['temperatura_max'];
 
-    // Obtener los datos más recientes de la tabla datos_suelo
-    $sql_datos = "SELECT * FROM datos_suelo ORDER BY created_at DESC LIMIT 1";
-    $result_datos = $conexion->query($sql_datos);
+        // Obtener los datos más recientes de la tabla datos_suelo
+        $sql_datos = "SELECT * FROM datos_suelo ORDER BY created_at DESC LIMIT 1";
+        $stmt_datos = $pdo->query($sql_datos);
+        $datos = $stmt_datos->fetch(PDO::FETCH_ASSOC);
 
-    if ($result_datos->num_rows > 0) {
-        $datos = $result_datos->fetch_assoc();
-        $humedad = $datos['humedad'];
-        $temperatura = $datos['temperatura'];
+        if ($datos) {
+            $humedad = $datos['humedad'];
+            $temperatura = $datos['temperatura'];
 
-        // Verificar los umbrales y preparar notificaciones
-        $notificaciones = [];
-        if ($humedad < $humedad_min) {
-            $notificaciones[] = "Swal.fire({icon: 'warning', title: 'Humedad Baja', text: 'La humedad está por debajo del umbral mínimo.'})";
-            $mensaje = "La humedad está por debajo del umbral mínimo. (Sensor suelo)";
-            $sql_insert = "INSERT INTO notificaciones (id_usuario, mensaje) VALUES ('$id_usuario', '$mensaje')";
-            $conexion->query($sql_insert);
-        }
-        if ($humedad > $humedad_max) {
-            $notificaciones[] = "Swal.fire({icon: 'warning', title: 'Humedad Alta', text: 'La humedad está por encima del umbral máximo.'})";
-            $mensaje = "La humedad está por encima del umbral máximo. (Sensor suelo)";
-            $sql_insert = "INSERT INTO notificaciones (id_usuario, mensaje) VALUES ('$id_usuario', '$mensaje')";
-            $conexion->query($sql_insert);
-        }
-        if ($temperatura < $temperatura_min) {
-            $notificaciones[] = "Swal.fire({icon: 'warning', title: 'Temperatura Baja', text: 'La temperatura está por debajo del umbral mínimo.'})";
-            $mensaje = "La temperatura está por debajo del umbral mínimo. (Sensor suelo)";
-            $sql_insert = "INSERT INTO notificaciones (id_usuario, mensaje) VALUES ('$id_usuario', '$mensaje')";
-            $conexion->query($sql_insert);
-        }
-        if ($temperatura > $temperatura_max) {
-            $notificaciones[] = "Swal.fire({icon: 'warning', title: 'Temperatura Alta', text: 'La temperatura está por encima del umbral máximo.'})";
-            $mensaje = "La temperatura está por encima del umbral máximo. (Sensor suelo)";
-            $sql_insert = "INSERT INTO notificaciones (id_usuario, mensaje) VALUES ('$id_usuario', '$mensaje')";
-            $conexion->query($sql_insert);
-        }
+            // Verificar los umbrales y preparar notificaciones
+            $notificaciones = [];
 
-        // Generar el script de notificaciones encadenadas
-        $script = "";
-        if (!empty($notificaciones)) {
-            $script .= "document.addEventListener('DOMContentLoaded', function() {";
-            $script .= "function mostrarNotificaciones(index) {";
-            $script .= "if (index < notificaciones.length) {";
-            $script .= "eval(notificaciones[index]).then(function() {";
-            $script .= "mostrarNotificaciones(index + 1);";
-            $script .= "});";
-            $script .= "}";
-            $script .= "}";
-            $script .= "var notificaciones = " . json_encode($notificaciones) . ";";
-            $script .= "mostrarNotificaciones(0);";
-            $script .= "});";
-        }
+            if ($humedad < $humedad_min) {
+                $notificaciones[] = "Swal.fire({icon: 'warning', title: 'Humedad Baja', text: 'La humedad está por debajo del umbral mínimo.'})";
+                insertarNotificacion($pdo, $id_usuario, "La humedad está por debajo del umbral mínimo. (Sensor suelo)");
+            }
+            if ($humedad > $humedad_max) {
+                $notificaciones[] = "Swal.fire({icon: 'warning', title: 'Humedad Alta', text: 'La humedad está por encima del umbral máximo.'})";
+                insertarNotificacion($pdo, $id_usuario, "La humedad está por encima del umbral máximo. (Sensor suelo)");
+            }
+            if ($temperatura < $temperatura_min) {
+                $notificaciones[] = "Swal.fire({icon: 'warning', title: 'Temperatura Baja', text: 'La temperatura está por debajo del umbral mínimo.'})";
+                insertarNotificacion($pdo, $id_usuario, "La temperatura está por debajo del umbral mínimo. (Sensor suelo)");
+            }
+            if ($temperatura > $temperatura_max) {
+                $notificaciones[] = "Swal.fire({icon: 'warning', title: 'Temperatura Alta', text: 'La temperatura está por encima del umbral máximo.'})";
+                insertarNotificacion($pdo, $id_usuario, "La temperatura está por encima del umbral máximo. (Sensor suelo)");
+            }
 
-        // Mostrar las notificaciones si es necesario
-        if ($script != "") {
-            echo "<script src='https://cdn.jsdelivr.net/npm/sweetalert2@11'></script>";
-            echo "<script>$script</script>";
+            // Generar el script de notificaciones encadenadas
+            generarNotificaciones($notificaciones);
         }
+    }
+
+    // Obtener los datos para los últimos 20 registros
+    $stmt = $pdo->prepare("SELECT TO_CHAR(created_at, 'YYYY-MM-DD HH24:00:00') AS hora,
+                                  AVG(temperatura) AS temperatura,
+                                  AVG(humedad) AS humedad,
+                                  AVG(PH) AS PH
+                           FROM datos_suelo
+                           GROUP BY hora
+                           ORDER BY hora DESC
+                           LIMIT 20");
+    $stmt->execute();
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $temperatures = [];
+    $humidities = [];
+    $pHs = [];
+    $labels = [];
+
+    foreach ($result as $row) {
+        $temperatures[] = $row['temperatura'];
+        $humidities[] = $row['humedad'];
+        $pHs[] = $row['PH'];
+        $labels[] = $row['hora'];
+    }
+
+    // Calcular varianza para cada conjunto de datos
+    $datos = [
+        'temperatures' => $temperatures,
+        'humidities' => $humidities,
+        'pHs' => $pHs,
+        'labels' => $labels,
+        'varianza_temperaturas' => calcularVarianza($temperatures),
+        'varianza_humedades' => calcularVarianza($humidities),
+        'varianza_ph' => calcularVarianza($pHs)
+    ];
+
+    echo "<script> var chartData = " . json_encode($datos) . ";</script>";
+
+} catch (Exception $e) {
+    echo "Error: " . $e->getMessage();
+}
+
+// Funciones reutilizables
+function insertarNotificacion($pdo, $id_usuario, $mensaje)
+{
+    $sql_insert = "INSERT INTO notificaciones (id_usuario, mensaje) VALUES (:id_usuario, :mensaje)";
+    $stmt_insert = $pdo->prepare($sql_insert);
+    $stmt_insert->execute(['id_usuario' => $id_usuario, 'mensaje' => $mensaje]);
+}
+
+function generarNotificaciones($notificaciones)
+{
+    if (!empty($notificaciones)) {
+        $script = "document.addEventListener('DOMContentLoaded', function() {";
+        $script .= "function mostrarNotificaciones(index) {";
+        $script .= "if (index < notificaciones.length) {";
+        $script .= "eval(notificaciones[index]).then(function() {";
+        $script .= "mostrarNotificaciones(index + 1);";
+        $script .= "});";
+        $script .= "}";
+        $script .= "}";
+        $script .= "var notificaciones = " . json_encode($notificaciones) . ";";
+        $script .= "mostrarNotificaciones(0);";
+        $script .= "});";
+
+        echo "<script src='https://cdn.jsdelivr.net/npm/sweetalert2@11'></script>";
+        echo "<script>$script</script>";
     }
 }
 
-// Cerrar conexión
-$conexion->close();
-?>
-
-<?php
-$conexion = new mysqli("localhost", "root", "", "invernadero");
-if ($conexion->connect_error) {
-    die("Connection failed: " . $conexion->connect_error);
-}
-
-// Función para calcular la varianza
 function calcularVarianza($datos)
 {
     $n = count($datos);
@@ -113,64 +140,8 @@ function calcularVarianza($datos)
         $sumaCuadrados += pow($valor - $media, 2);
     }
 
-    $varianza = $sumaCuadrados / $n;
-    return $varianza;
+    return $sumaCuadrados / $n;
 }
-
-// Obtener los datos reales para los últimos 20 registros
-$stmt = $conexion->prepare("
-    SELECT 
-        DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00') AS hora,
-        AVG(temperatura) AS temperatura,
-            AVG(humedad) AS humedad,
-            AVG(PH) AS PH
-    FROM 
-        datos_suelo
-    GROUP BY 
-        hora
-    ORDER BY 
-        hora DESC
-    LIMIT 20
-");
-
-$stmt->execute();
-$result = $stmt->get_result();
-
-$temperatures = array();
-$humidities = array();
-$pHs = array();
-$labels = array();
-
-while ($row = $result->fetch_assoc()) {
-    $temperatures[] = $row['temperatura'];
-    $humidities[] = $row['humedad'];
-    $pHs[] = $row['PH'];
-    // Agregar la etiqueta de tiempo formateada como necesites (por ejemplo, solo la hora)
-    $labels[] = $row['hora'];
-}
-
-$stmt->close();
-
-// Calcular varianza para cada conjunto de datos
-$varianza_temperaturas = calcularVarianza($temperatures);
-$varianza_humedades = calcularVarianza($humidities);
-$varianza_ph = calcularVarianza($pHs);
-
-// Cerrar la conexión
-$conexion->close();
-
-// Convertir los datos en formato JSON para ser utilizados en el JavaScript
-$datos = [
-    'temperatures' => $temperatures,
-    'humidities' => $humidities,
-    'pHs' => $pHs,
-    'labels' => $labels,
-    'varianza_temperaturas' => $varianza_temperaturas,
-    'varianza_humedades' => $varianza_humedades,
-    'varianza_ph' => $varianza_ph
-];
-
-echo "<script> var chartData = " . json_encode($datos) . ";</script>";
 ?>
 <!DOCTYPE html>
 <html lang="en">

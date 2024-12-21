@@ -1,0 +1,5 @@
+cronJobs:
+  - name: ejecutar-modelo-predictivo
+    schedule: "0 0 * * 0"  # Esto ejecutará el cron job cada domingo a la medianoche
+    command: "python predicciones.py"  # Asegúrate de que este sea el nombre de tu archivo Python
+    env: python  # Indica que es un entorno de Python

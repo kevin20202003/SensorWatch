@@ -14,7 +14,7 @@ if (!isset($_SESSION["id_usuario"])) {
 if (!isset($_SESSION['codigo_enviado'])) {
     // Enviar el código de verificación si no se ha enviado antes
     $id_usuario = $_SESSION["id_usuario"];
-    // Cambiar la consulta SQL para PostgreSQL usando PDO
+    // Consulta SQL para PostgreSQL usando PDO
     $stmt = $pdo->prepare("SELECT correo_electronico FROM usuarios WHERE id_usuario = :id_usuario");
     $stmt->execute([':id_usuario' => $id_usuario]);
     $usuario = $stmt->fetch(PDO::FETCH_OBJ);
@@ -32,7 +32,6 @@ if (!isset($_SESSION['codigo_enviado'])) {
         enviarCodigoVerificacion($correo_usuario, $codigo_verificacion);
 
         // Actualizar el código y la marca de tiempo en la base de datos
-        // Cambiar la consulta SQL para PostgreSQL usando PDO
         $stmt = $pdo->prepare("UPDATE usuarios SET codigo_verificacion = :codigo_verificacion, codigo_timestamp = :codigo_timestamp, intentos_fallidos = 0 WHERE id_usuario = :id_usuario");
         $stmt->execute([
             ':codigo_verificacion' => $codigo_verificacion,
@@ -69,12 +68,7 @@ if (!empty($_POST["btnverificar"])) {
             } else {
                 // Verificar si el código coincide
                 if ($datos->codigo_verificacion == $codigo_ingresado) {
-                    // Redirigir según el rol del usuario
-                    if ($datos->rol == 'Administrador') {
-                        header("location: ../admin.php");
-                    } else {
-                        header("location: ../home.php");
-                    }
+                        header("location: ../index.php");
                     exit;
                 } else {
                     // Incrementar el número de intentos fallidos
@@ -85,7 +79,6 @@ if (!empty($_POST["btnverificar"])) {
 
                     // Si los intentos llegan a 3, desactivar al usuario
                     if ($intentos >= 3) {
-                        // Desactivar al usuario
                         $stmt = $pdo->prepare("UPDATE usuarios SET estado = 'Inactivo' WHERE id_usuario = :id_usuario");
                         $stmt->execute([':id_usuario' => $id_usuario]);
                         $alertMessage = "<div class='alert alert-danger'>Has excedido el número de intentos permitidos. Tu cuenta ha sido desactivada.</div>";
@@ -112,7 +105,6 @@ if (!empty($_POST["btnverificar"])) {
     <style>
         .alert-container {
             margin-bottom: 15px;
-            /* Espacio entre el mensaje y el input */
         }
 
         .btn {

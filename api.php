@@ -1,13 +1,8 @@
 <?php
 header("Content-Type: application/json");
 
-// Conexión con la base de datos
-$conexion = new mysqli("localhost", "root", "", "invernadero");
-
-if ($conexion->connect_error) {
-    echo json_encode(["status" => "error", "message" => "Error de conexión: " . $conexion->connect_error]);
-    exit;
-}
+// Incluir el archivo de conexión
+require 'modelo/conexion.php';
 
 // Validar tabla recibida en la solicitud
 $tabla = $_GET['tabla'] ?? '';
@@ -26,32 +21,24 @@ $tabla_predicciones = $tablas_validas[$tabla]['tabla'];
 $columna_fecha = $tablas_validas[$tabla]['columna_fecha'];
 
 // Establecer el límite de registros según la tabla seleccionada
-$limite = 7; // Por defecto, mostrar los últimos 7 registros
+$limite = $tabla === 'meteorologico' ? 30 : 7;
 
-if ($tabla == 'meteorologico') {
-    $limite = 30; // Para la tabla meteorológica, mostrar los últimos 30 registros
+// Preparar la consulta usando consultas preparadas
+try {
+    $stmt = $pdo->prepare("SELECT * FROM {$tabla_predicciones} ORDER BY {$columna_fecha} DESC LIMIT :limite");
+    $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+    $stmt->execute();
+    
+    $datos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($datos)) {
+        echo json_encode(["status" => "error", "message" => "No hay datos disponibles en la tabla seleccionada."]);
+    } else {
+        echo json_encode(["status" => "success", "data" => $datos]);
+    }
+} catch (PDOException $e) {
+    echo json_encode(["status" => "error", "message" => "Error al ejecutar la consulta: " . $e->getMessage()]);
 }
 
-// Consultar los últimos registros de la tabla correspondiente
-$query = "SELECT * FROM `$tabla_predicciones` LIMIT $limite";
-$resultado = $conexion->query($query);
-
-if (!$resultado) {
-    echo json_encode(["status" => "error", "message" => "Error al ejecutar la consulta: " . $conexion->error]);
-    exit;
-}
-
-// Formatear resultados en JSON
-$datos = [];
-while ($fila = $resultado->fetch_assoc()) {
-    $datos[] = $fila;
-}
-
-if (empty($datos)) {
-    echo json_encode(["status" => "error", "message" => "No hay datos disponibles en la tabla seleccionada."]);
-} else {
-    echo json_encode(["status" => "success", "data" => $datos]);
-}
-
-$conexion->close();
+$pdo = null;
 ?>

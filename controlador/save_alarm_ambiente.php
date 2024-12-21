@@ -1,7 +1,6 @@
 <?php
-// save_alarm_suelo.php
 header('Content-Type: application/json');
-require '../modelo/conexion.php'; // Asegúrate de incluir tu archivo de conexión a la base de datos
+require '../modelo/conexion.php'; 
 
 // Verificar si la solicitud es un POST
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -23,10 +22,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     // Insertar datos en la base de datos
     $sql = "INSERT INTO umbral_ambiente (id_usuario, humedad_min, humedad_max, temperatura_min, temperatura_max)
-            VALUES (?, ?, ?, ?, ?)";
+            VALUES (:id_usuario, :humedad_min, :humedad_max, :temperatura_min, :temperatura_max)";
 
-    $stmt = $conexion->prepare($sql);
-    $result = $stmt->execute([$id_usuario, $humedad_min, $humedad_max, $temperatura_min, $temperatura_max]);
+    $stmt = $pdo->prepare($sql);
+
+    // Vincular parámetros y ejecutar la consulta
+    $result = $stmt->execute([
+        ':id_usuario' => $id_usuario,
+        ':humedad_min' => $humedad_min,
+        ':humedad_max' => $humedad_max,
+        ':temperatura_min' => $temperatura_min,
+        ':temperatura_max' => $temperatura_max
+    ]);
 
     if ($result) {
         echo json_encode(['success' => true, 'message' => 'Alarma guardada exitosamente.']);
@@ -36,4 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 } else {
     echo json_encode(['success' => false, 'message' => 'Método de solicitud no permitido.']);
 }
+
+// Cerrar conexión
+$pdo = null;
 ?>

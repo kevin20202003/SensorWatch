@@ -42,36 +42,31 @@ function obtenerDatosClimaticos() {
 }
 
 function guardarDatosEnBaseDeDatos($temperatura, $humedad, $presion, $viento) {
-    // Configuración de la base de datos
-    $host = 'localhost';
-    $usuario = 'root';
-    $contrasena = '';
-    $baseDeDatos = 'invernadero';
-
-    // Crear conexión
-    $conn = new mysqli($host, $usuario, $contrasena, $baseDeDatos);
-
-    // Verificar la conexión
-    if ($conn->connect_error) {
-        die("Conexión fallida: " . $conn->connect_error);
-    }
+    // Incluir el archivo de conexión
+    require 'modelo/conexion.php';
 
     // Obtener la fecha y hora actual
     $fechaHora = date('Y-m-d H:i:s');
 
     // Preparar la consulta SQL
     $sql = "INSERT INTO datos_meteorologicos (date, temp, wind_speed, pressure, humidity) 
-            VALUES ('$fechaHora', '$temperatura', '$viento', '$presion', '$humedad')";
+            VALUES (:fechaHora, :temperatura, :viento, :presion, :humedad)";
 
-    // Ejecutar la consulta
-    if ($conn->query($sql) !== TRUE) {
-        // Asegúrate de que no haya ningún mensaje de error en la respuesta
-        echo json_encode(["error" => "Error al guardar los datos: " . $conn->error]);
+    // Ejecutar la consulta utilizando PDO
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->bindParam(':fechaHora', $fechaHora);
+        $stmt->bindParam(':temperatura', $temperatura);
+        $stmt->bindParam(':viento', $viento);
+        $stmt->bindParam(':presion', $presion);
+        $stmt->bindParam(':humedad', $humedad);
+
+        $stmt->execute();
+    } catch (PDOException $e) {
+        // Manejo de error si la consulta falla
+        echo json_encode(["error" => "Error al guardar los datos: " . $e->getMessage()]);
         exit();
     }
-
-    // Cerrar la conexión
-    $conn->close();
 }
 
 // Llamar a la función y devolver los datos como JSON

@@ -2,37 +2,12 @@
 
 require('./fpdf.php');
 
-function connect_db()
-{
-   global $conexion;
-   if ($conexion === null) {
-      $conexion = new mysqli("localhost", "root", "", "invernadero");
-      if ($conexion->connect_error) {
-         die("Connection failed: " . $conexion->connect_error);
-      }
-      $conexion->set_charset("utf8");
-   }
-   return $conexion;
-}
-
-function close_db()
-{
-   global $conexion;
-   if ($conexion !== null) {
-      $conexion->close();
-      $conexion = null;
-   }
-}
+// Incluir el archivo de conexión
+require '../../modelo/conexion.php'; 
 
 class PDF extends FPDF
 {
    private $isFirstPage = true;
-
-   // Recibe la información del usuario
-   function __construct()
-   {
-      parent::__construct();
-   }
 
    // Cabecera de página
    function Header()
@@ -47,14 +22,9 @@ class PDF extends FPDF
          $this->Cell(80, 20, utf8_decode('SENSORWATCH'), 1, 1, 'C', 0);
          $this->Ln(5);
 
-         $this->SetTextColor(103);
-         $this->Cell(180);
-         $this->SetFont('Arial', 'B', 14);
-         $this->Ln(7);
-
          $this->SetTextColor(228, 100, 0);
-         $this->Cell(100);
          $this->SetFont('Arial', 'B', 18);
+         $this->Cell(100);
          $this->Cell(80, 20, utf8_decode("REPORTE DEL SENSOR SUELO"), 0, 1, 'C', 0);
          $this->Ln(10);
 
@@ -63,8 +33,7 @@ class PDF extends FPDF
          $this->SetDrawColor(163, 163, 163);
          $this->SetFont('Arial', 'B', 11);
 
-         // Asegurarse de que la tabla esté centrada en la página
-         $this->SetX(80);  // Ajuste horizontal para centrar la tabla
+         $this->SetX(80); 
          $this->Cell(30, 10, utf8_decode('HUMEDAD'), 1, 0, 'C', 1);
          $this->Cell(35, 10, utf8_decode('TEMPERATURA'), 1, 0, 'C', 1);
          $this->Cell(30, 10, utf8_decode('PH'), 1, 0, 'C', 1);
@@ -79,67 +48,60 @@ class PDF extends FPDF
       $this->SetFont('Arial', 'I', 8);
       $this->Cell(0, 10, utf8_decode('Página ') . $this->PageNo() . '/{nb}', 0, 0, 'C');
       $this->SetY(-15);
-      $this->SetFont('Arial', 'I', 8);
       $hoy = date('d/m/Y');
       $this->Cell(540, 10, utf8_decode($hoy), 0, 0, 'C');
    }
 }
 
-// Conectar a la base de datos
-$conexion = connect_db();
+try {
+   // Consulta a la base de datos
+   $sql = "SELECT 
+               TO_CHAR(created_at, 'YYYY-MM-DD HH24:00:00') AS hora,
+               AVG(humedad) AS humedad,
+               AVG(temperatura) AS temperatura,
+               AVG(ph) AS ph
+           FROM 
+               datos_suelo
+           GROUP BY 
+               hora
+           ORDER BY 
+               hora";
 
-// Consulta a la tabla datos_suelo para obtener registros agrupados por hora
-$sql = "SELECT 
-      DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00') AS hora,
-      AVG(humedad) AS humedad,
-      AVG(temperatura) AS temperatura,
-      AVG(PH) AS PH
-    FROM 
-        datos_suelo
-    GROUP BY 
-        hora
-    ORDER BY 
-        hora;";
+   $stmt = $pdo->prepare($sql);
+   $stmt->execute();
+   $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Prepara y ejecuta la consulta
-$stmt = $conexion->prepare($sql);
-$stmt->execute();
-$result = $stmt->get_result();
+   if (empty($result)) {
+      throw new Exception("No se encontraron datos para generar el reporte.");
+   }
 
-if (!$result) {
-   die("Error en la consulta de datos_suelo: " . $conexion->error);
+   // Crear el objeto PDF
+   $pdf = new PDF();
+   $pdf->AddPage("landscape");
+   $pdf->AliasNbPages();
+   $pdf->SetFont('Arial', '', 12);
+   $pdf->SetDrawColor(163, 163, 163);
+
+   // Mostrar los registros en el PDF
+   foreach ($result as $row) {
+      $pdf->SetTextColor(0, 0, 0);
+
+      $humedad = number_format($row['humedad'], 2);
+      $temperatura = number_format($row['temperatura'], 2);
+      $ph = number_format($row['ph'], 2);
+
+      $pdf->SetX(80); 
+      $pdf->Cell(30, 10, utf8_decode($humedad), 1, 0, 'C', 0);
+      $pdf->Cell(35, 10, utf8_decode($temperatura), 1, 0, 'C', 0);
+      $pdf->Cell(30, 10, utf8_decode($ph), 1, 0, 'C', 0);
+      $pdf->Cell(43, 10, utf8_decode($row['hora']), 1, 1, 'C', 0);
+   }
+
+   // Generar el PDF
+   $pdf->Output('Reporte_Suelo.pdf', 'I');
+} catch (Exception $e) {
+   echo "Error: " . $e->getMessage();
+} finally {
+   // Cerrar conexión a la base de datos
+   $pdo = null;
 }
-
-// Crea el objeto PDF
-$pdf = new PDF();
-$pdf->AddPage("landscape");
-$pdf->AliasNbPages();
-$pdf->SetFont('Arial', '', 12);
-$pdf->SetDrawColor(163, 163, 163);
-
-// Incluir la información del usuario en el encabezado
-$pdf->Header();
-
-// Mostrar los registros agrupados por hora
-while ($row = $result->fetch_assoc()) {
-   $pdf->SetTextColor(0, 0, 0); // Establece el color de texto a negro (RGB: 0, 0, 0)
-
-   // Redondear las variables a 2 decimales
-   $humedad = number_format($row['humedad'], 2);
-   $temperatura = number_format($row['temperatura'], 2);
-   $ph = number_format($row['PH'], 2);
-
-   $pdf->SetX(80);  // Ajuste horizontal para centrar la tabla
-   $pdf->Cell(30, 10, utf8_decode($humedad), 1, 0, 'C', 0);
-   $pdf->Cell(35, 10, utf8_decode($temperatura), 1, 0, 'C', 0);
-   $pdf->Cell(30, 10, utf8_decode($ph), 1, 0, 'C', 0);
-   $pdf->Cell(43, 10, utf8_decode($row['hora']), 1, 1, 'C', 0);
-}
-
-// Agregar pie de página
-$pdf->Footer();
-$pdf->Output('Reporte_Suelo.pdf', 'I');
-
-// Cerrar la conexión a la base de datos
-close_db();
-?>

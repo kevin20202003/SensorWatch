@@ -1,27 +1,19 @@
 <?php
-// Conexión a la base de datos
-$conexion = new mysqli('localhost', 'root', '', 'invernadero');
+require '../modelo/conexion.php';
 
-// Verificar conexión
-if ($conexion->connect_error) {
-    header('Content-Type: application/json');
-    echo json_encode(['error' => 'Conexión fallida']);
-    exit;
-}
+session_start();
 
-session_start(); // Asegúrate de iniciar sesión
-
-$id_usuario = $_SESSION['id_usuario']; // Asegúrate de tener la sesión iniciada
+$id_usuario = $_SESSION['id_usuario'];
 
 // Obtener las notificaciones no leídas
-$sql_notificaciones = "SELECT * FROM notificaciones WHERE id_usuario = $id_usuario AND leida = FALSE ORDER BY fecha DESC";
-$result_notificaciones = $conexion->query($sql_notificaciones);
+$sql_notificaciones = "SELECT * FROM notificaciones WHERE id_usuario = :id_usuario AND leida = FALSE ORDER BY fecha DESC";
+$stmt_notificaciones = $pdo->prepare($sql_notificaciones);
+$stmt_notificaciones->bindParam(':id_usuario', $id_usuario, PDO::PARAM_INT);
+$stmt_notificaciones->execute();
 
 $notificaciones = [];
-if ($result_notificaciones->num_rows > 0) {
-    while ($row = $result_notificaciones->fetch_assoc()) {
-        $notificaciones[] = $row;
-    }
+if ($stmt_notificaciones->rowCount() > 0) {
+    $notificaciones = $stmt_notificaciones->fetchAll(PDO::FETCH_ASSOC);
 }
 
 // Contar notificaciones
@@ -35,5 +27,5 @@ echo json_encode([
 ]);
 
 // Cerrar conexión
-$conexion->close();
+$pdo = null;
 ?>

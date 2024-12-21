@@ -1,7 +1,7 @@
 <?php
 
 // Incluye los archivos necesarios para PhpSpreadsheet
-require 'autoload.php'; // Asegúrate de tener Composer instalado y usar autoload.php
+require 'autoload.php';
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -13,35 +13,12 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Font;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 
-// Funciones para la conexión a la base de datos
-function connect_db()
-{
-    global $conexion;
-    if ($conexion === null) {
-        $conexion = new mysqli("localhost", "root", "", "invernadero");
-        if ($conexion->connect_error) {
-            die("Connection failed: " . $conexion->connect_error);
-        }
-        $conexion->set_charset("utf8");
-    }
-    return $conexion;
-}
-
-function close_db()
-{
-    global $conexion;
-    if ($conexion !== null) {
-        $conexion->close();
-        $conexion = null;
-    }
-}
-
-// Conectar a la base de datos
-$conexion = connect_db();
+// Incluir el archivo de conexión
+require '../modelo/conexion.php';
 
 // Consulta a la tabla datos_suelo
 $sql = "SELECT 
-      DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00') AS hora,
+      TO_CHAR(created_at, 'YYYY-MM-DD HH24:00:00') AS hora,
       AVG(humedad) AS humedad,
       AVG(temperatura) AS temperatura,
       AVG(PH) AS PH
@@ -52,11 +29,17 @@ $sql = "SELECT
     ORDER BY 
         hora;";
 
-$stmt = $conexion->prepare($sql);
-$stmt->execute();
-$result = $stmt->get_result();
-if (!$result) {
-    die("Error en la consulta de datos_suelo: " . $conexion->error);
+try {
+    // Preparar la consulta SQL con PDO
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!$result) {
+        die("Error en la consulta de datos_suelo.");
+    }
+} catch (PDOException $e) {
+    die("Error en la consulta: " . $e->getMessage());
 }
 
 $spreadsheet = new Spreadsheet();
@@ -102,12 +85,12 @@ $borderStyle = [
 ];
 
 // Agregar datos
-$row_num = 7; // Empezamos en la fila 7
-while ($row = $result->fetch_assoc()) {
+$row_num = 7; 
+foreach ($result as $row) {
     // Redondear las variables a 2 decimales
     $humedad = number_format($row['humedad'], 2);
     $temperatura = number_format($row['temperatura'], 2);
-    $ph = number_format($row['PH'], 2);
+    $ph = number_format($row['ph'], 2);
 
     // Establecer los valores en las celdas
     $sheet->setCellValue('A' . $row_num, $humedad);
@@ -128,10 +111,10 @@ foreach ($columnLetters as $columnID) {
 
 // Agregar una imagen en la parte derecha
 $drawing = new Drawing();
-$drawing->setPath('../img/logo_proyecto.png'); // Reemplaza con la ruta a tu imagen
-$drawing->setCoordinates('E1'); // Coloca la imagen en la celda E1
-$drawing->setWidth(150); // Ajusta el ancho de la imagen
-$drawing->setHeight(150); // Ajusta la altura de la imagen
+$drawing->setPath('../img/logo_proyecto.png'); 
+$drawing->setCoordinates('E1'); 
+$drawing->setWidth(150); 
+$drawing->setHeight(150); 
 $drawing->setWorksheet($sheet);
 
 // Establecer nombre del archivo
@@ -143,5 +126,6 @@ header('Cache-Control: max-age=0');
 $writer = new Xlsx($spreadsheet);
 $writer->save('php://output');
 
-close_db();
+// Cerrar la conexión con la base de datos
+$pdo = null;
 ?>

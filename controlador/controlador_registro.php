@@ -1,6 +1,6 @@
 <?php 
 session_start();
-require '../modelo/conexion.php'; // Asegúrate de incluir la conexión PDO
+require '../modelo/conexion.php'; 
 
 if (!empty($_POST["btningresar"])) {
     if (!empty($_POST["usuario"]) && !empty($_POST["correo_electronico"]) && !empty($_POST["password"])) {
@@ -19,7 +19,7 @@ if (!empty($_POST["btningresar"])) {
         if ($sql_verificar->rowCount() > 0) {
             echo "<div class='alert alert-warning'>Usuario o correo electrónico ya existente, por favor ingrese datos nuevos.</div>";
         } else {
-            // Si no existe, proceder con la inserción
+            // Si no existe, proceder a insertar un nuevo usuario
             $sql_insertar = $pdo->prepare("INSERT INTO usuarios (nombre, correo_electronico, password, rol, estado) VALUES (:usuario, :correo, :contrasena, :rol, :estado)");
             $sql_insertar->bindParam(':usuario', $usuario, PDO::PARAM_STR);
             $sql_insertar->bindParam(':correo', $correo, PDO::PARAM_STR);
@@ -29,7 +29,7 @@ if (!empty($_POST["btningresar"])) {
 
             if ($sql_insertar->execute()) {
                 header("location: login.php");
-                exit; // Importante: salir del script después de redirigir
+                exit; 
             } else {
                 echo "<div class='alert alert-danger'>Error al registrar usuario.</div>";
             }

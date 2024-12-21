@@ -5,22 +5,23 @@ if (empty($_SESSION["id_usuario"])) {
     exit();
 }
 
-// Conexión a la base de datos
-$conexion = new mysqli('localhost', 'root', '', 'invernadero');
-
-// Verificar conexión
-if ($conexion->connect_error) {
-    die("Conexión fallida: " . $conexion->connect_error);
-}
+// Incluir el archivo de conexión
+require '../modelo/conexion.php';
 
 $id_usuario = isset($_SESSION['id_usuario']) ? intval($_SESSION['id_usuario']) : 0;
 
 // Eliminar registro si se ha solicitado
-if (isset($_GET['delete']) && isset($_GET['table']) && isset($_GET['id'])) {
-    $table = $_GET['table'];
+if (isset($_GET['delete'], $_GET['table'], $_GET['id'])) {
+    $table = htmlspecialchars($_GET['table']);
     $id = intval($_GET['id']);
-    $sql_delete = "DELETE FROM $table WHERE id = $id AND id_usuario = $id_usuario";
-    $conexion->query($sql_delete);
+
+    try {
+        $sql_delete = "DELETE FROM $table WHERE id = :id AND id_usuario = :id_usuario";
+        $stmt = $pdo->prepare($sql_delete);
+        $stmt->execute([':id' => $id, ':id_usuario' => $id_usuario]);
+    } catch (PDOException $e) {
+        echo "Error al eliminar registro: " . $e->getMessage();
+    }
 }
 
 // Obtener datos de las tablas
@@ -28,25 +29,38 @@ $tables = ['umbral_suelo', 'umbral_ambiente', 'umbral_meteorologicos'];
 $results = [];
 
 foreach ($tables as $table) {
-    $sql = "SELECT * FROM $table WHERE id_usuario = $id_usuario";
-    $results[$table] = $conexion->query($sql);
+    try {
+        $sql = "SELECT * FROM $table WHERE id_usuario = :id_usuario";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([':id_usuario' => $id_usuario]);
+        $results[$table] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        echo "Error al obtener datos de $table: " . $e->getMessage();
+    }
 }
 
 // Filtrar resultados por fecha y tabla seleccionada
-$selected_table = isset($_POST['table']) ? $_POST['table'] : '';
-$start_date = isset($_POST['start_date']) ? $_POST['start_date'] : '';
-$end_date = isset($_POST['end_date']) ? $_POST['end_date'] : '';
 $filtered_results = [];
+if (isset($_POST['table'], $_POST['start_date'], $_POST['end_date'])) {
+    $selected_table = htmlspecialchars($_POST['table']);
+    $start_date = $_POST['start_date'] . ' 00:00:00';
+    $end_date = $_POST['end_date'] . ' 23:59:59';
 
-if ($selected_table && $start_date && $end_date) {
-    $sql_filtered = "SELECT * FROM umbral_suelo 
-                 WHERE id_usuario = $id_usuario 
-                 AND fecha BETWEEN '$start_date 00:00:00' AND '$end_date 23:59:59'";
-    $filtered_results = $conexion->query($sql_filtered);
+    try {
+        $sql_filtered = "SELECT * FROM $selected_table 
+                         WHERE id_usuario = :id_usuario 
+                         AND fecha BETWEEN :start_date AND :end_date";
+        $stmt = $pdo->prepare($sql_filtered);
+        $stmt->execute([
+            ':id_usuario' => $id_usuario,
+            ':start_date' => $start_date,
+            ':end_date' => $end_date
+        ]);
+        $filtered_results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        echo "Error al filtrar resultados: " . $e->getMessage();
+    }
 }
-
-// Cerrar conexión
-$conexion->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -361,30 +375,30 @@ $conexion->close();
             </a>
         </nav>
     </div>
-    <!--Container Main start-->
+    <!-- Container Main start -->
     <div class="height-100">
         <div class="container mt-4" style="align-items: center; text-align: center; justify-content: center;">
             <h1>Alarmas</h1>
             <br><br><br>
-            <div class="form-inline mb-3"> <!-- Añadido mb-3 para margen inferior -->
+            <div class="form-inline mb-3">
                 <form method="post" action="">
-                    <select name="table" class="form-select form-control-lg"> <!-- Añadido form-control-lg para hacer el select más grande -->
+                    <select name="table" class="form-select form-control-lg">
                         <option value="">Seleccione una tabla</option>
                         <?php foreach ($tables as $table) : ?>
-                            <option value="<?php echo $table; ?>" <?php echo $selected_table == $table ? 'selected' : ''; ?>>
+                            <option value="<?php echo $table; ?>" <?php echo $selected_table === $table ? 'selected' : ''; ?>>
                                 <?php echo ucfirst(str_replace('_', ' ', $table)); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
                     <br>
-                    <input type="date" name="start_date" class="form-control form-control-lg" value="<?php echo $start_date; ?>"> <!-- Añadido form-control-lg para hacer los inputs de fecha más grandes -->
+                    <input type="date" name="start_date" class="form-control form-control-lg" value="<?php echo $start_date; ?>">
                     <br>
-                    <input type="date" name="end_date" class="form-control form-control-lg" value="<?php echo $end_date; ?>"> <!-- Añadido form-control-lg para hacer los inputs de fecha más grandes -->
+                    <input type="date" name="end_date" class="form-control form-control-lg" value="<?php echo $end_date; ?>">
                     <br>
-                    <button type="submit" class="btn btn-primary btn-lg">Buscar</button> <!-- Añadido btn-lg para hacer el botón más grande -->
+                    <button type="submit" class="btn btn-primary btn-lg">Buscar</button>
                 </form>
             </div>
-            <?php if ($filtered_results && $filtered_results->num_rows > 0) : ?>
+            <?php if (!empty($filtered_results)) : ?>
                 <div class="row mt-4">
                     <div class="col-12">
                         <table class="table table-bordered">
@@ -395,68 +409,74 @@ $conexion->close();
                                     <th>Humedad Máxima</th>
                                     <th>Temperatura Mínima</th>
                                     <th>Temperatura Máxima</th>
-                                    <?php if ($selected_table == 'umbral_meteorologicos') : ?>
-                                        <th>Presion Mínima</th>
-                                        <th>Presion Máxima</th>
+                                    <?php if ($selected_table === 'umbral_meteorologicos') : ?>
+                                        <th>Presión Mínima</th>
+                                        <th>Presión Máxima</th>
                                     <?php endif; ?>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php while ($row = $filtered_results->fetch_assoc()) : ?>
+                                <?php foreach ($filtered_results as $row) : ?>
                                     <tr>
-                                        <td><?php echo $row['id']; ?></td>
-                                        <td><?php echo $row['humedad_min']; ?></td>
-                                        <td><?php echo $row['humedad_max']; ?></td>
-                                        <td><?php echo $row['temperatura_min']; ?></td>
-                                        <td><?php echo $row['temperatura_max']; ?></td>
-                                        <?php if ($selected_table == 'umbral_meteorologicos') : ?>
-                                            <td><?php echo $row['presion_min']; ?></td>
-                                            <td><?php echo $row['presion_max']; ?></td>
+                                        <td><?php echo htmlspecialchars($row['id']); ?></td>
+                                        <td><?php echo htmlspecialchars($row['humedad_min']); ?></td>
+                                        <td><?php echo htmlspecialchars($row['humedad_max']); ?></td>
+                                        <td><?php echo htmlspecialchars($row['temperatura_min']); ?></td>
+                                        <td><?php echo htmlspecialchars($row['temperatura_max']); ?></td>
+                                        <?php if ($selected_table === 'umbral_meteorologicos') : ?>
+                                            <td><?php echo htmlspecialchars($row['presion_min']); ?></td>
+                                            <td><?php echo htmlspecialchars($row['presion_max']); ?></td>
                                         <?php endif; ?>
                                         <td>
-                                            <button class="btn-delete" data-table="<?php echo $selected_table; ?>" data-id="<?php echo $row['id']; ?>">X</button>
+                                            <button class="btn-delete btn btn-danger" data-table="<?php echo $selected_table; ?>" data-id="<?php echo htmlspecialchars($row['id']); ?>">X</button>
                                         </td>
                                     </tr>
-                                <?php endwhile; ?>
+                                <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
                 </div>
+            <?php else : ?>
+                <div class="alert alert-warning mt-4" role="alert">
+                    No se encontraron resultados para la búsqueda.
+                </div>
             <?php endif; ?>
         </div>
-        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                document.querySelectorAll('.btn-delete').forEach(button => {
-                    button.addEventListener('click', function() {
-                        const table = this.getAttribute('data-table');
-                        const id = this.getAttribute('data-id');
+    </div>
 
-                        Swal.fire({
-                            title: '¿Estás seguro?',
-                            text: "Esta acción eliminará el registro permanentemente.",
-                            icon: 'warning',
-                            showCancelButton: true,
-                            confirmButtonColor: '#3085d6',
-                            cancelButtonColor: '#d33',
-                            confirmButtonText: 'Sí, eliminar',
-                            cancelButtonText: 'Cancelar'
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                // Redirigir a la misma página con parámetros de eliminación
-                                window.location.href = `?delete=1&table=${table}&id=${id}`;
-                            }
-                        });
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.btn-delete').forEach(button => {
+                button.addEventListener('click', function() {
+                    const table = this.getAttribute('data-table');
+                    const id = this.getAttribute('data-id');
+
+                    Swal.fire({
+                        title: '¿Estás seguro?',
+                        text: "Esta acción eliminará el registro permanentemente.",
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#3085d6',
+                        cancelButtonColor: '#d33',
+                        confirmButtonText: 'Sí, eliminar',
+                        cancelButtonText: 'Cancelar'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = `?delete=1&table=${encodeURIComponent(table)}&id=${encodeURIComponent(id)}`;
+                        }
                     });
                 });
             });
-        </script>
-        <!-- Bootstrap JavaScript Libraries -->
-        <script src="https://kit.fontawesome.com/e9f58d382f.js" crossorigin="anonymous"></script>
-        <!-- Bootstrap JavaScript Libraries -->
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-        <script src="../js/menu.js"></script>
+        });
+    </script>
+
+    <!-- Bootstrap JavaScript Libraries -->
+    <script src="https://kit.fontawesome.com/e9f58d382f.js" crossorigin="anonymous"></script>
+    <!-- Bootstrap JavaScript Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="../js/menu.js"></script>
 </body>
 
 </html>

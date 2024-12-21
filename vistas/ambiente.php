@@ -6,164 +6,152 @@ if (empty($_SESSION["id_usuario"])) {
 ?>
 
 <?php
-// Conexión a la base de datos
-$conexion = new mysqli('localhost', 'root', '', 'invernadero');
-
-// Verificar conexión
-if ($conexion->connect_error) {
-    die("Conexión fallida: " . $conexion->connect_error);
-}
+// Incluir el archivo de conexión
+require '../modelo/conexion.php';
 
 $id_usuario = $_SESSION['id_usuario'];
 
-// Obtener los datos del umbral para el usuario actual
-$sql_umbral = "SELECT * FROM umbral_ambiente WHERE id_usuario = $id_usuario";
-$result_umbral = $conexion->query($sql_umbral);
+try {
+    // Obtener los datos del umbral para el usuario actual
+    $sql_umbral = "SELECT * FROM umbral_ambiente WHERE id_usuario = :id_usuario";
+    $stmt = $pdo->prepare($sql_umbral);
+    $stmt->execute(['id_usuario' => $id_usuario]);
+    $umbrales = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Procesar cada umbral
-while ($umbral = $result_umbral->fetch_assoc()) {
-    $humedad_min = $umbral['humedad_min'];
-    $humedad_max = $umbral['humedad_max'];
-    $temperatura_min = $umbral['temperatura_min'];
-    $temperatura_max = $umbral['temperatura_max'];
+    foreach ($umbrales as $umbral) {
+        $humedad_min = $umbral['humedad_min'];
+        $humedad_max = $umbral['humedad_max'];
+        $temperatura_min = $umbral['temperatura_min'];
+        $temperatura_max = $umbral['temperatura_max'];
 
-    // Obtener los datos más recientes de la tabla datos_suelo
-    $sql_datos = "SELECT * FROM datos_ambiente ORDER BY created_at DESC LIMIT 1";
-    $result_datos = $conexion->query($sql_datos);
+        // Obtener los datos más recientes de la tabla datos_ambiente
+        $sql_datos = "SELECT * FROM datos_ambiente ORDER BY created_at DESC LIMIT 1";
+        $stmt_datos = $pdo->query($sql_datos);
+        $datos = $stmt_datos->fetch(PDO::FETCH_ASSOC);
 
-    if ($result_datos->num_rows > 0) {
-        $datos = $result_datos->fetch_assoc();
-        $humedad = $datos['humedad_amb'];
-        $temperatura = $datos['temperatura_amb'];
+        if ($datos) {
+            $humedad = $datos['humedad_amb'];
+            $temperatura = $datos['temperatura_amb'];
 
-        // Verificar los umbrales y preparar notificaciones
-        $notificaciones = [];
-        if ($humedad < $humedad_min) {
-            $notificaciones[] = "Swal.fire({icon: 'warning', title: 'Humedad Baja', text: 'La humedad está por debajo del umbral mínimo.'})";
-            $mensaje = "La humedad está por debajo del umbral mínimo. (Sensor ambiente)";
-            $sql_insert = "INSERT INTO notificaciones (id_usuario, mensaje) VALUES ('$id_usuario', '$mensaje')";
-            $conexion->query($sql_insert);
-        }
-        if ($humedad > $humedad_max) {
-            $notificaciones[] = "Swal.fire({icon: 'warning', title: 'Humedad Alta', text: 'La humedad está por encima del umbral máximo.'})";
-            $mensaje = "La humedad está por encima del umbral máximo. (Sensor ambiente)";
-            $sql_insert = "INSERT INTO notificaciones (id_usuario, mensaje) VALUES ('$id_usuario', '$mensaje')";
-            $conexion->query($sql_insert);
-        }
-        if ($temperatura < $temperatura_min) {
-            $notificaciones[] = "Swal.fire({icon: 'warning', title: 'Temperatura Baja', text: 'La temperatura está por debajo del umbral mínimo.'})";
-            $mensaje = "La temperatura está por debajo del umbral mínimo. (Sensor ambiente)";
-            $sql_insert = "INSERT INTO notificaciones (id_usuario, mensaje) VALUES ('$id_usuario', '$mensaje')";
-            $conexion->query($sql_insert);
-        }
-        if ($temperatura > $temperatura_max) {
-            $notificaciones[] = "Swal.fire({icon: 'warning', title: 'Temperatura Alta', text: 'La temperatura está por encima del umbral máximo.'})";
-            $mensaje = "La temperatura está por encima del umbral máximo. (Sensor ambiente)";
-            $sql_insert = "INSERT INTO notificaciones (id_usuario, mensaje) VALUES ('$id_usuario', '$mensaje')";
-            $conexion->query($sql_insert);
-        }
+            // Verificar los umbrales y preparar notificaciones
+            $notificaciones = [];
+            if ($humedad < $humedad_min) {
+                $notificaciones[] = "Swal.fire({icon: 'warning', title: 'Humedad Baja', text: 'La humedad está por debajo del umbral mínimo.'})";
+                $mensaje = "La humedad está por debajo del umbral mínimo. (Sensor ambiente)";
+                $sql_insert = "INSERT INTO notificaciones (id_usuario, mensaje) VALUES (:id_usuario, :mensaje)";
+                $stmt_insert = $pdo->prepare($sql_insert);
+                $stmt_insert->execute(['id_usuario' => $id_usuario, 'mensaje' => $mensaje]);
+            }
+            if ($humedad > $humedad_max) {
+                $notificaciones[] = "Swal.fire({icon: 'warning', title: 'Humedad Alta', text: 'La humedad está por encima del umbral máximo.'})";
+                $mensaje = "La humedad está por encima del umbral máximo. (Sensor ambiente)";
+                $stmt_insert->execute(['id_usuario' => $id_usuario, 'mensaje' => $mensaje]);
+            }
+            if ($temperatura < $temperatura_min) {
+                $notificaciones[] = "Swal.fire({icon: 'warning', title: 'Temperatura Baja', text: 'La temperatura está por debajo del umbral mínimo.'})";
+                $mensaje = "La temperatura está por debajo del umbral mínimo. (Sensor ambiente)";
+                $stmt_insert->execute(['id_usuario' => $id_usuario, 'mensaje' => $mensaje]);
+            }
+            if ($temperatura > $temperatura_max) {
+                $notificaciones[] = "Swal.fire({icon: 'warning', title: 'Temperatura Alta', text: 'La temperatura está por encima del umbral máximo.'})";
+                $mensaje = "La temperatura está por encima del umbral máximo. (Sensor ambiente)";
+                $stmt_insert->execute(['id_usuario' => $id_usuario, 'mensaje' => $mensaje]);
+            }
 
-        // Generar el script de notificaciones encadenadas
-        $script = "";
-        if (!empty($notificaciones)) {
-            $script .= "document.addEventListener('DOMContentLoaded', function() {";
-            $script .= "function mostrarNotificaciones(index) {";
-            $script .= "if (index < notificaciones.length) {";
-            $script .= "eval(notificaciones[index]).then(function() {";
-            $script .= "mostrarNotificaciones(index + 1);";
-            $script .= "});";
-            $script .= "}";
-            $script .= "}";
-            $script .= "var notificaciones = " . json_encode($notificaciones) . ";";
-            $script .= "mostrarNotificaciones(0);";
-            $script .= "});";
-        }
+            // Generar el script de notificaciones encadenadas
+            $script = "";
+            if (!empty($notificaciones)) {
+                $script .= "document.addEventListener('DOMContentLoaded', function() {";
+                $script .= "function mostrarNotificaciones(index) {";
+                $script .= "if (index < notificaciones.length) {";
+                $script .= "eval(notificaciones[index]).then(function() {";
+                $script .= "mostrarNotificaciones(index + 1);";
+                $script .= "});";
+                $script .= "}";
+                $script .= "}";
+                $script .= "var notificaciones = " . json_encode($notificaciones) . ";";
+                $script .= "mostrarNotificaciones(0);";
+                $script .= "});";
+            }
 
-        // Mostrar las notificaciones si es necesario
-        if ($script != "") {
-            echo "<script src='https://cdn.jsdelivr.net/npm/sweetalert2@11'></script>";
-            echo "<script>$script</script>";
+            // Mostrar las notificaciones si es necesario
+            if ($script != "") {
+                echo "<script src='https://cdn.jsdelivr.net/npm/sweetalert2@11'></script>";
+                echo "<script>$script</script>";
+            }
         }
     }
-}
 
-?>
-
-<?php
-
-
-// Función para calcular la varianza
-function calcularVarianza($datos)
-{
-    $n = count($datos);
-    if ($n === 0) {
-        return null;
-    }
-
-    $media = array_sum($datos) / $n;
-    $sumaCuadrados = 0;
-
-    foreach ($datos as $valor) {
-        $sumaCuadrados += pow($valor - $media, 2);
-    }
-
-    $varianza = $sumaCuadrados / $n;
-    return $varianza;
-}
-
-// Obtener los datos reales para los últimos 20 registros
-$stmt = $conexion->prepare("
-    SELECT 
-        DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00') AS hora,
-        AVG(temperatura_amb) AS temperatura_amb,
+    // Consulta para calcular varianza y promedio
+    $sql_varianza = "
+        SELECT 
+            TO_CHAR(created_at, 'YYYY-MM-DD HH24:00:00') AS hora,
+            AVG(temperatura_amb) AS temperatura_amb,
             AVG(humedad_amb) AS humedad_amb,
             AVG(lux) AS lux
-    FROM 
-        datos_ambiente
-    GROUP BY 
-        hora
-    ORDER BY 
-        hora DESC
-    LIMIT 20
-");
+        FROM 
+            datos_ambiente
+        GROUP BY 
+            hora
+        ORDER BY 
+            hora DESC
+        LIMIT 20
+    ";
 
-$stmt->execute();
-$result = $stmt->get_result();
+    $stmt_varianza = $pdo->query($sql_varianza);
+    $temperatures = [];
+    $humidities = [];
+    $luxs = [];
+    $labels = [];
 
-$temperatures = array();
-$humidities = array();
-$luxs = array();
-$labels = array();
+    while ($row = $stmt_varianza->fetch(PDO::FETCH_ASSOC)) {
+        $temperatures[] = $row['temperatura_amb'];
+        $humidities[] = $row['humedad_amb'];
+        $luxs[] = $row['lux'];
+        $labels[] = $row['hora'];
+    }
 
-while ($row = $result->fetch_assoc()) {
-    $temperatures[] = $row['temperatura_amb'];
-    $humidities[] = $row['humedad_amb'];
-    $luxs[] = $row['lux'];
-    $labels[] = $row['hora']; // Formatea la hora (por ejemplo, "10:00")
+    // Función para calcular varianza
+    function calcularVarianza($datos)
+    {
+        $n = count($datos);
+        if ($n === 0) {
+            return null;
+        }
+
+        $media = array_sum($datos) / $n;
+        $sumaCuadrados = 0;
+
+        foreach ($datos as $valor) {
+            $sumaCuadrados += pow($valor - $media, 2);
+        }
+
+        return $sumaCuadrados / $n;
+    }
+
+    // Calcular varianza para cada conjunto de datos
+    $varianza_temperaturas = calcularVarianza($temperatures);
+    $varianza_humedades = calcularVarianza($humidities);
+    $varianza_luxs = calcularVarianza($luxs);
+
+    // Convertir los datos en formato JSON para ser utilizados en el JavaScript
+    $datos = [
+        'temperatures' => $temperatures,
+        'humidities' => $humidities,
+        'luxs' => $luxs,
+        'labels' => $labels,
+        'varianza_temperaturas' => $varianza_temperaturas,
+        'varianza_humedades' => $varianza_humedades,
+        'varianza_luxs' => $varianza_luxs
+    ];
+
+    echo "<script> var chartData = " . json_encode($datos) . ";</script>";
+} catch (PDOException $e) {
+    echo "Error en la consulta: " . $e->getMessage();
+} finally {
+    // Liberar la conexión
+    $pdo = null;
 }
-
-$stmt->close();
-
-// Calcular varianza para cada conjunto de datos
-$varianza_temperaturas = calcularVarianza($temperatures);
-$varianza_humedades = calcularVarianza($humidities);
-$varianza_luxs = calcularVarianza($luxs);
-
-// Cerrar la conexión
-$conexion->close();
-
-// Convertir los datos en formato JSON para ser utilizados en el JavaScript
-$datos = [
-    'temperatures' => $temperatures,
-    'humidities' => $humidities,
-    'luxs' => $luxs,
-    'labels' => $labels,
-    'varianza_temperaturas' => $varianza_temperaturas,
-    'varianza_humedades' => $varianza_humedades,
-    'varianza_luxs' => $varianza_luxs
-];
-
-echo "<script> var chartData = " . json_encode($datos) . ";</script>";
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -256,20 +244,15 @@ echo "<script> var chartData = " . json_encode($datos) . ";</script>";
             backdrop-filter: blur(55px);
         }
 
-        /* Ajustar el ancho del dropdown */
         #notificationDropdown {
             width: auto;
-            /* Ajusta este valor según sea necesario */
             overflow-x: hidden;
         }
 
         .dropdown-toggle {
             width: 25px;
-            /* Ajusta este valor según el tamaño de la campana */
         }
 
-
-        /* Estilo para el botón de cerrar */
         .notification-close {
             display: inline-block;
             width: 20px;
@@ -291,29 +274,23 @@ echo "<script> var chartData = " . json_encode($datos) . ";</script>";
         .header_img {
             display: flex;
             align-items: center;
-            /* Centra verticalmente el contenido */
             background-color: black;
             color: white;
             padding: 0.5em 1em;
-            /* Añade un padding para dar espacio interno */
             border-radius: 10px;
-            /* Define qué tan redondeados serán los bordes */
             width: 110px;
         }
 
         .header_img span,
         .header_img i {
             color: white;
-            /* Asegura que el texto y el icono sean blancos */
             font-size: 1.5em;
         }
 
         .header_img span {
             margin-right: 0.5em;
-            /* Añade un pequeño espacio entre el nombre y el ícono */
         }
 
-        /* Asegúrate de que el contenedor tenga suficiente espacio para centrar los botones */
         .button-container {
             margin-top: 100px;
             text-align: center;
@@ -321,32 +298,22 @@ echo "<script> var chartData = " . json_encode($datos) . ";</script>";
             align-items: center;
         }
 
-        /* Asegúrate de que los botones no se desborden y estén correctamente alineados */
         .button-container .btn {
             white-space: nowrap;
-            /* Evita el ajuste de línea dentro de los botones */
         }
 
-        /* Ocultar scrollbar en navegadores WebKit (Chrome, Safari) */
         .content::-webkit-scrollbar {
             width: 0;
-            /* Ancho del scrollbar */
             background: transparent;
-            /* Fondo transparente */
         }
 
-        /* Ocultar scrollbar en Firefox */
         .content {
             scrollbar-width: none;
-            /* Oculta scrollbar en Firefox */
             -ms-overflow-style: none;
-            /* Oculta scrollbar en IE y Edge */
         }
 
-        /* Asegurar que el contenido siga siendo desplazable */
         .content {
             overflow: auto;
-            /* Permitir desplazamiento */
             max-width: 100%;
             max-height: 100%;
             padding: 20px;
@@ -776,7 +743,7 @@ echo "<script> var chartData = " . json_encode($datos) . ";</script>";
                 // Mostrar la varianza en el modal
                 var varianzaElement = document.getElementById(chartConfig.varianzaId);
                 if (varianzaElement) {
-                    varianzaElement.textContent = 'Varianza: ' + varianza.toFixed(2); // Ajusta el formato de la varianza según sea necesario
+                    varianzaElement.textContent = 'Varianza: ' + varianza.toFixed(2);
                 }
             }
 
@@ -789,7 +756,7 @@ echo "<script> var chartData = " . json_encode($datos) . ";</script>";
                     modal.show();
 
                     // Obtener los datos del gráfico correspondiente
-                    const category = this.getAttribute('data-category'); // Asegúrate de asignar el atributo "data-category" a los contenedores
+                    const category = this.getAttribute('data-category'); 
                     const chartConfig = graphData[category];
 
                     // Obtener los datos específicos de la categoría desde chartData

@@ -1,6 +1,6 @@
 <?php 
-session_start(); // Inicia la sesión al principio del archivo
-require '../modelo/conexion.php'; // Asegúrate de que la conexión esté correctamente incluida
+session_start(); 
+require '../modelo/conexion.php'; 
 
 if (!empty($_POST["btningresar"])) {
     if (!empty($_POST["usuario"]) && !empty($_POST["password"])) {
@@ -25,7 +25,7 @@ if (!empty($_POST["btningresar"])) {
                     
                     // Redirigir al usuario a la página de verificación de código
                     header("location: ../auth/verificar_codigo.php");
-                    exit; // Es importante usar exit después de header() para evitar que el script continúe ejecutándose
+                    exit; 
                 } else {
                     echo "<div class='alert alert-danger'>Contraseña incorrecta</div>";
                 }

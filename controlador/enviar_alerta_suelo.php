@@ -1,17 +1,15 @@
 <?php
-// Conexión a la base de datos
-$conexion = new mysqli('localhost', 'root', '', 'invernadero');
-
-// Verificar conexión
-if ($conexion->connect_error) {
-    die("Conexión fallida: " . $conexion->connect_error);
-}
+session_start();
+require '../modelo/conexion.php';
 
 $id_usuario = $_SESSION['id_usuario'];
 
 // Obtener los datos del umbral para el usuario actual
-$sql_umbral = "SELECT * FROM umbral_suelo WHERE id_usuario = $id_usuario";
-$result_umbral = $conexion->query($sql_umbral);
+$sql_umbral = "SELECT * FROM umbral_suelo WHERE id_usuario = :id_usuario";
+$stmt_umbral = $pdo->prepare($sql_umbral);
+$stmt_umbral->bindParam(':id_usuario', $id_usuario, PDO::PARAM_INT);
+$stmt_umbral->execute();
+$result_umbral = $stmt_umbral->fetchAll(PDO::FETCH_ASSOC);
 
 // Configuración de PHPMailer
 use PHPMailer\PHPMailer\PHPMailer;
@@ -23,15 +21,17 @@ require '../PHPMailer/src/PHPMailer.php';
 require '../PHPMailer/src/SMTP.php';
 
 // Obtener el correo electrónico del usuario
-$sql_usuario = "SELECT correo_electronico FROM usuarios WHERE id_usuario = $id_usuario";
-$result_usuario = $conexion->query($sql_usuario);
+$sql_usuario = "SELECT correo_electronico FROM usuarios WHERE id_usuario = :id_usuario";
+$stmt_usuario = $pdo->prepare($sql_usuario);
+$stmt_usuario->bindParam(':id_usuario', $id_usuario, PDO::PARAM_INT);
+$stmt_usuario->execute();
 $correo_usuario = '';
-if ($result_usuario->num_rows > 0) {
-    $correo_usuario = $result_usuario->fetch_assoc()['correo_electronico'];
+if ($stmt_usuario->rowCount() > 0) {
+    $correo_usuario = $stmt_usuario->fetchColumn();
 }
 
 // Procesar cada umbral
-while ($umbral = $result_umbral->fetch_assoc()) {
+foreach ($result_umbral as $umbral) {
     $humedad_min = $umbral['humedad_min'];
     $humedad_max = $umbral['humedad_max'];
     $temperatura_min = $umbral['temperatura_min'];
@@ -39,10 +39,10 @@ while ($umbral = $result_umbral->fetch_assoc()) {
 
     // Obtener los datos más recientes de la tabla datos_suelo
     $sql_datos = "SELECT * FROM datos_suelo ORDER BY created_at DESC LIMIT 1";
-    $result_datos = $conexion->query($sql_datos);
+    $stmt_datos = $pdo->query($sql_datos);
+    $datos = $stmt_datos->fetch(PDO::FETCH_ASSOC);
 
-    if ($result_datos->num_rows > 0) {
-        $datos = $result_datos->fetch_assoc();
+    if ($datos) {
         $humedad = $datos['humedad'];
         $temperatura = $datos['temperatura'];
 
@@ -70,12 +70,12 @@ while ($umbral = $result_umbral->fetch_assoc()) {
                 $mail->isSMTP();
                 $mail->Host       = 'smtp.gmail.com';
                 $mail->SMTPAuth   = true;
-                $mail->Username   = 'sensorwatch99@gmail.com'; // Cambia a tu correo
-                $mail->Password   = 'yrwk zuzt jifl tnhs';       // Cambia a tu contraseña (considera usar variables de entorno)
+                $mail->Username   = 'sensorwatch99@gmail.com'; 
+                $mail->Password   = 'yrwk zuzt jifl tnhs';       
                 $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
                 $mail->Port       = 465;
 
-                // Configuración SSL opcional (deshabilita la validación del certificado si es necesario)
+                // Configuración SSL (deshabilita la validación del certificado si es necesario)
                 $mail->SMTPOptions = array(
                     'ssl' => array(
                         'verify_peer' => false,
@@ -85,7 +85,7 @@ while ($umbral = $result_umbral->fetch_assoc()) {
                 );
 
                 // Remitente y destinatario
-                $mail->setFrom('sensorwatch99@gmail.com', 'Sistema Monitoreo'); // Cambia a tu remitent
+                $mail->setFrom('sensorwatch99@gmail.com', 'Sistema Monitoreo');
                 $mail->addAddress($correo_usuario);
 
                 // Contenido del correo
@@ -110,4 +110,5 @@ while ($umbral = $result_umbral->fetch_assoc()) {
 }
 
 // Cerrar conexión
-$conexion->close();
+$pdo = null;
+?>

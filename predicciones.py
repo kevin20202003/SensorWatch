@@ -4,10 +4,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 import joblib
 from sqlalchemy import create_engine, text
-import time
 
-# Configuración de conexión con SQLAlchemy
-db_uri = "mysql+mysqlconnector://root:@localhost/invernadero"
+# Configuración de conexión con PostgreSQL (psycopg2)
+db_uri = "postgresql+psycopg2://invernadero_b4gl_user:y39YXOlTTfBs5Fs28iZrHV8Dj4DJwLYY@dpg-ctjgc29opnds73fpf86g-a:5432/invernadero_b4gl"
 engine = create_engine(db_uri)
 
 def obtener_datos(tabla):
@@ -78,18 +77,14 @@ def guardar_predicciones(tabla, predicciones, columna_fecha):
             except Exception as e:
                 print(f"Error al insertar registro para la fecha {fila[columna_fecha]}: {e}")
 
-# Bucle para la ejecución recurrente
-while True:
-    for tabla, variables, horizonte, columna_fecha in [
-        ('datos_suelo', ['temperatura', 'humedad', 'PH'], 7, 'created_at'),
-        ('datos_ambiente', ['temperatura_amb', 'humedad_amb', 'lux'], 7, 'created_at'),
-        ('datos_meteorologicos', ['temp', 'humidity', 'pressure', 'wind_speed'], 30, 'date')
-    ]:
-        try:
-            predicciones = entrenar_y_predecir(tabla, variables, horizonte, columna_fecha)
-            guardar_predicciones(tabla, predicciones, columna_fecha)
-        except Exception as e:
-            print(f"Error procesando la tabla '{tabla}': {e}")
-
-    print("Esperando 1 hora y 30 minutos para la próxima ejecución...")
-    time.sleep(5400)
+# El cron job se encargará de ejecutar este script cada 7 días.
+for tabla, variables, horizonte, columna_fecha in [
+    ('datos_suelo', ['temperatura', 'humedad', 'PH'], 7, 'created_at'),
+    ('datos_ambiente', ['temperatura_amb', 'humedad_amb', 'lux'], 7, 'created_at'),
+    ('datos_meteorologicos', ['temp', 'humidity', 'pressure', 'wind_speed'], 30, 'date')
+]:
+    try:
+        predicciones = entrenar_y_predecir(tabla, variables, horizonte, columna_fecha)
+        guardar_predicciones(tabla, predicciones, columna_fecha)
+    except Exception as e:
+        print(f"Error procesando la tabla '{tabla}': {e}")
