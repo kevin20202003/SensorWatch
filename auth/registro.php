@@ -1,3 +1,7 @@
+<?php
+include "../modelo/conexion.php";
+include "../controlador/controlador_registro.php";
+?>
 <!DOCTYPE html>
 <html lang="es">
 
@@ -44,10 +48,6 @@
     <section>
         <form method="post" action="">
             <h1 style="color: white;">Registro</h1>
-            <?php
-            include "../modelo/conexion.php";
-            include "../controlador/controlador_registro.php";
-            ?>
             <div class="inputbox">
                 <input type="text" name="usuario" required>
                 <label for="">Usuario</label>

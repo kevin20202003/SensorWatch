@@ -11,7 +11,7 @@ if (!empty($_POST["btningresar"])) {
         $estado = "Activo";
 
         // Verificar si el usuario ya existe
-        $sql_verificar = $conexion->prepare("SELECT * FROM usuarios WHERE nombre = :usuario OR correo_electronico = :correo");
+        $sql_verificar = $pdo->prepare("SELECT * FROM usuarios WHERE nombre = :usuario OR correo_electronico = :correo");
         $sql_verificar->bindParam(':usuario', $usuario, PDO::PARAM_STR);
         $sql_verificar->bindParam(':correo', $correo, PDO::PARAM_STR);
         $sql_verificar->execute();
@@ -20,7 +20,7 @@ if (!empty($_POST["btningresar"])) {
             echo "<div class='alert alert-warning'>Usuario o correo electrónico ya existente, por favor ingrese datos nuevos.</div>";
         } else {
             // Si no existe, proceder con la inserción
-            $sql_insertar = $conexion->prepare("INSERT INTO usuarios (nombre, correo_electronico, password, rol, estado) VALUES (:usuario, :correo, :contrasena, :rol, :estado)");
+            $sql_insertar = $pdo->prepare("INSERT INTO usuarios (nombre, correo_electronico, password, rol, estado) VALUES (:usuario, :correo, :contrasena, :rol, :estado)");
             $sql_insertar->bindParam(':usuario', $usuario, PDO::PARAM_STR);
             $sql_insertar->bindParam(':correo', $correo, PDO::PARAM_STR);
             $sql_insertar->bindParam(':contrasena', $contrasena, PDO::PARAM_STR);

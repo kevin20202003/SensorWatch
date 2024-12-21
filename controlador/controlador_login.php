@@ -8,7 +8,7 @@ if (!empty($_POST["btningresar"])) {
         $password = $_POST["password"];
 
         // Consulta preparada para evitar inyección SQL
-        $stmt = $conexion->prepare("SELECT * FROM usuarios WHERE nombre = :usuario");
+        $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE nombre = :usuario");
         $stmt->bindParam(':usuario', $usuario, PDO::PARAM_STR);
         $stmt->execute();
         $resultado = $stmt->fetch(PDO::FETCH_OBJ);
