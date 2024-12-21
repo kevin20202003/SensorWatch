@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
 require '../modelo/conexion.php';
 
 // Obtener ID de usuario desde la sesión

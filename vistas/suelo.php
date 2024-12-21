@@ -84,7 +84,7 @@ try {
     while ($row = $stmt_varianza->fetch(PDO::FETCH_ASSOC)) {
         $temperatures[] = $row['temperatura'];
         $humidities[] = $row['humedad'];
-        $pHs[] = isset($row['PH']) ? $row['PH'] : null;  // Verificar si PH existe
+        $pHs[] = $row['PH'];  
         $labels[] = $row['hora'];
     }
 
