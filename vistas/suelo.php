@@ -179,7 +179,7 @@ function calcularVarianza($datos)
                         // Actualizar los elementos con los datos recibidos
                         document.querySelector('.temperatura_suelo').innerText = data.temperatura + " °C";
                         document.querySelector('.humedad_suelo').innerText = data.humedad + " %";
-                        document.querySelector('.ph_suelo').innerText = data.PH;
+                        document.querySelector('.ph_suelo').innerText = data.ph;
                     }
                 })
                 .catch(error => console.error('Error al obtener los datos de suelo:', error));
