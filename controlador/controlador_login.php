@@ -1,6 +1,6 @@
 <?php 
-require '../modelo/conexion.php'; // Asegúrate de que la conexión esté correctamente incluida
 session_start(); // Inicia la sesión al principio del archivo
+require '../modelo/conexion.php'; // Asegúrate de que la conexión esté correctamente incluida
 
 if (!empty($_POST["btningresar"])) {
     if (!empty($_POST["usuario"]) && !empty($_POST["password"])) {

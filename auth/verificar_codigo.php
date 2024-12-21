@@ -1,10 +1,9 @@
 <?php
-require '../modelo/conexion.php';
-require '../modelo/email.php';
-
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
+require '../modelo/conexion.php';
+require '../modelo/email.php';
 
 if (!isset($_SESSION["id_usuario"])) {
     header("location: ../login.php");
