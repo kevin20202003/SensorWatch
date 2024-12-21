@@ -1,10 +1,10 @@
 <?php
 
-$host = 'dpg-ctj33hjtq21c73dvtdj0-a'; // External o Internal URL
+$host = 'dpg-ctjgc29opnds73fpf86g-a'; // External o Internal URL
 $port = '5432'; // Puerto de PostgreSQL
-$dbname = 'invernadero';
-$user = 'invernadero_user';
-$password = 'A01znTdBGmkNia7JhUEmgyMabE90NdCp';
+$dbname = 'invernadero_b4gl';
+$user = 'invernadero_b4gl_user';
+$password = 'y39YXOlTTfBs5Fs28iZrHV8Dj4DJwLYY';
 
 try {
     $pdo = new PDO("pgsql:host=$host;port=$port;dbname=$dbname", $user, $password);

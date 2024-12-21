@@ -15,8 +15,10 @@ if (!isset($_SESSION["id_usuario"])) {
 if (!isset($_SESSION['codigo_enviado'])) {
     // Enviar el código de verificación si no se ha enviado antes
     $id_usuario = $_SESSION["id_usuario"];
-    $sql = $conexion->query("SELECT correo_electronico FROM usuarios WHERE id_usuario=$id_usuario");
-    $usuario = $sql->fetch_object();
+    // Cambiar la consulta SQL para PostgreSQL usando PDO
+    $stmt = $pdo->prepare("SELECT correo_electronico FROM usuarios WHERE id_usuario = :id_usuario");
+    $stmt->execute([':id_usuario' => $id_usuario]);
+    $usuario = $stmt->fetch(PDO::FETCH_OBJ);
 
     if ($usuario) {
         $correo_usuario = $usuario->correo_electronico;
@@ -31,7 +33,13 @@ if (!isset($_SESSION['codigo_enviado'])) {
         enviarCodigoVerificacion($correo_usuario, $codigo_verificacion);
 
         // Actualizar el código y la marca de tiempo en la base de datos
-        $conexion->query("UPDATE usuarios SET codigo_verificacion='$codigo_verificacion', codigo_timestamp='$codigo_timestamp', intentos_fallidos=0 WHERE id_usuario=$id_usuario");
+        // Cambiar la consulta SQL para PostgreSQL usando PDO
+        $stmt = $pdo->prepare("UPDATE usuarios SET codigo_verificacion = :codigo_verificacion, codigo_timestamp = :codigo_timestamp, intentos_fallidos = 0 WHERE id_usuario = :id_usuario");
+        $stmt->execute([
+            ':codigo_verificacion' => $codigo_verificacion,
+            ':codigo_timestamp' => $codigo_timestamp,
+            ':id_usuario' => $id_usuario
+        ]);
     }
 }
 
@@ -41,9 +49,10 @@ if (!empty($_POST["btnverificar"])) {
     $codigo_ingresado = $_POST["codigo"];
     $id_usuario = $_SESSION["id_usuario"];
 
-    // Consultar el usuario con la sesión iniciada
-    $sql = $conexion->query("SELECT * FROM usuarios WHERE id_usuario=$id_usuario");
-    $datos = $sql->fetch_object();
+    // Consultar el usuario con la sesión iniciada usando PDO
+    $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE id_usuario = :id_usuario");
+    $stmt->execute([':id_usuario' => $id_usuario]);
+    $datos = $stmt->fetch(PDO::FETCH_OBJ);
 
     if ($datos) {
         $_SESSION["nombre"] = $datos->nombre; // Asignar el nombre del usuario a la sesión
@@ -71,11 +80,15 @@ if (!empty($_POST["btnverificar"])) {
                 } else {
                     // Incrementar el número de intentos fallidos
                     $intentos = $datos->intentos_fallidos + 1;
-                    $conexion->query("UPDATE usuarios SET intentos_fallidos=$intentos WHERE id_usuario=$id_usuario");
+                    // Actualizar el número de intentos fallidos en la base de datos
+                    $stmt = $pdo->prepare("UPDATE usuarios SET intentos_fallidos = :intentos WHERE id_usuario = :id_usuario");
+                    $stmt->execute([':intentos' => $intentos, ':id_usuario' => $id_usuario]);
 
                     // Si los intentos llegan a 3, desactivar al usuario
                     if ($intentos >= 3) {
-                        $conexion->query("UPDATE usuarios SET estado='Inactivo' WHERE id_usuario=$id_usuario");
+                        // Desactivar al usuario
+                        $stmt = $pdo->prepare("UPDATE usuarios SET estado = 'Inactivo' WHERE id_usuario = :id_usuario");
+                        $stmt->execute([':id_usuario' => $id_usuario]);
                         $alertMessage = "<div class='alert alert-danger'>Has excedido el número de intentos permitidos. Tu cuenta ha sido desactivada.</div>";
                     } else {
                         $alertMessage = "<div class='alert alert-danger'>Código incorrecto. Intentos restantes: " . (3 - $intentos) . "</div>";

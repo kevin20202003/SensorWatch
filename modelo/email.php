@@ -7,12 +7,18 @@ require '../PHPMailer/src/Exception.php';
 require '../PHPMailer/src/PHPMailer.php';
 require '../PHPMailer/src/SMTP.php';
 
-// Conexión a la base de datos
-$conexion = new mysqli('localhost', 'root', '', 'invernadero');
+$host = 'dpg-ctjgc29opnds73fpf86g-a'; // External o Internal URL
+$port = '5432'; // Puerto de PostgreSQL
+$dbname = 'invernadero_b4gl';
+$user = 'invernadero_b4gl_user';
+$password = 'y39YXOlTTfBs5Fs28iZrHV8Dj4DJwLYY';
 
-// Verificar conexión
-if ($conexion->connect_error) {
-    die("Conexión fallida: " . $conexion->connect_error);
+try {
+    $pdo = new PDO("pgsql:host=$host;port=$port;dbname=$dbname", $user, $password);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    echo "Conexión exitosa a PostgreSQL.";
+} catch (PDOException $e) {
+    echo "Error al conectar a PostgreSQL: " . $e->getMessage();
 }
 
 // Función para enviar el código de verificación al correo del usuario
