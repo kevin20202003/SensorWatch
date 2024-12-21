@@ -65,7 +65,7 @@ try {
             TO_CHAR(created_at, 'YYYY-MM-DD HH24:00:00') AS hora,
             AVG(temperatura) AS temperatura,
             AVG(humedad) AS humedad,
-            AVG(PH) AS PH
+            AVG(ph) AS ph
         FROM 
             datos_suelo
         GROUP BY 
@@ -84,7 +84,7 @@ try {
     while ($row = $stmt_varianza->fetch(PDO::FETCH_ASSOC)) {
         $temperatures[] = $row['temperatura'];
         $humidities[] = $row['humedad'];
-        $pHs[] = $row['PH'];  
+        $pHs[] = $row['ph'];  
         $labels[] = $row['hora'];
     }
 
